@@ -88,6 +88,14 @@ export default function EditProfile() {
         e.preventDefault();
         setSaving(true);
         try {
+            // Calculate Profile Completion
+            let score = 0;
+            if (formData.name) score += 20;
+            if (formData.bio) score += 20;
+            if (formData.photoUrl) score += 20;
+            if (formData.phone) score += 20;
+            if (formData.instagram || formData.linkedin) score += 20;
+
             const docRef = doc(db, 'users', user.email);
             // Use setDoc with merge: true which handles creation if missing
             await setDoc(docRef, {
@@ -99,10 +107,12 @@ export default function EditProfile() {
                 },
                 phone: {
                     number: formData.phone,
-                    visibility: 'PUBLIC' // Always set to public effectively, or just unused
+                    visibility: 'PUBLIC' // Defaults to public now
                 },
-                photoUrl: formData.photoUrl
+                photoUrl: formData.photoUrl,
+                profileCompletion: score
             }, { merge: true });
+
             alert('Profile Updated!');
             router.push(`/delegate/${user.email}`);
         } catch (e) {

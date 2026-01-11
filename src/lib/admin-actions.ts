@@ -3,21 +3,111 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import { randomBytes } from 'crypto';
 
+export type DelegateData = {
+    qrId: string;
+    status: string; // UNCLAIMED, CLAIMED, DISABLED
+    scanCount: number;
+    lastScan: string | null;
+    email: string;
+    name: string;
+    entity: string;
+    profileCompletion: number;
+};
 export async function getDashboardStats() {
-    const adminDb = getAdminDb();
-    try {
-        const qrSnapshot = await adminDb.collection('qrs').count().get();
-        const claimedSnapshot = await adminDb.collection('qrs').where('status', '==', 'CLAIMED').count().get();
+    const data = await getDetailedAdminData();
+    return data.stats;
+}
 
-        // Total delegates is roughly equal to claimed QRs
+export async function getDetailedAdminData() {
+    const adminDb = getAdminDb();
+
+    try {
+        // Fetch all QRs
+        const qrsSnapshot = await adminDb.collection('qrs').get();
+        const qrs = qrsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+        // Fetch all Users to join data
+        const usersSnapshot = await adminDb.collection('users').get();
+        const usersMap = new Map();
+
+        usersSnapshot.docs.forEach(doc => {
+            usersMap.set(doc.id, doc.data());
+        });
+
+        const delegates: DelegateData[] = qrs.map(qr => {
+            let user = null;
+            if (qr.assignedEmail) {
+                user = usersMap.get(qr.assignedEmail);
+            }
+
+            return {
+                qrId: qr.id,
+                status: qr.status || 'UNCLAIMED',
+                scanCount: qr.scanCount || 0,
+                lastScan: qr.lastScanAt ? new Date(qr.lastScanAt).toLocaleString() : null,
+                email: qr.assignedEmail || '-',
+                name: user?.name || '-',
+                entity: user?.entity || '-',
+                profileCompletion: user?.profileCompletion || 0,
+            };
+        });
+
+        // Calculate Stats
+        const totalQrs = qrs.length;
+        const claimed = qrs.filter(q => q.status === 'CLAIMED').length;
+        const disabled = qrs.filter(q => q.status === 'DISABLED').length;
+        const unclaimed = qrs.filter(q => q.status === 'UNCLAIMED').length;
+
+        // Entity Distribution
+        const entityCounts: Record<string, number> = {};
+        delegates.forEach(d => {
+            if (d.status === 'CLAIMED' && d.entity && d.entity !== '-') {
+                entityCounts[d.entity] = (entityCounts[d.entity] || 0) + 1;
+            }
+        });
+
         return {
-            totalQrs: qrSnapshot.data().count,
-            claimed: claimedSnapshot.data().count,
-            unclaimed: qrSnapshot.data().count - claimedSnapshot.data().count,
+            stats: { totalQrs, claimed, unclaimed, disabled },
+            delegates,
+            entityDistribution: entityCounts
         };
     } catch (error) {
-        console.error('Error fetching stats:', error);
-        return { totalQrs: 0, claimed: 0, unclaimed: 0 };
+        console.error('Error in getDetailedAdminData:', error);
+        return {
+            stats: { totalQrs: 0, claimed: 0, unclaimed: 0, disabled: 0 },
+            delegates: [],
+            entityDistribution: {}
+        };
+    }
+}
+
+export async function toggleQRStatus(qrId: string, shouldDisable: boolean) {
+    const adminDb = getAdminDb();
+    const qrRef = adminDb.collection('qrs').doc(qrId);
+
+    try {
+        const doc = await qrRef.get();
+        if (!doc.exists) throw new Error('QR not found');
+
+        const data = doc.data();
+        let newStatus = 'UNCLAIMED';
+
+        if (shouldDisable) {
+            newStatus = 'DISABLED';
+        } else {
+            // Re-enabling: Restore based on assignment
+            if (data?.assignedEmail) {
+                newStatus = 'CLAIMED';
+            } else {
+                newStatus = 'UNCLAIMED';
+            }
+        }
+
+        await qrRef.update({ status: newStatus });
+        return { success: true, newStatus };
+    } catch (error) {
+        console.error('Toggle QR Error:', error);
+        return { success: false, error: 'Failed to update status' };
     }
 }
 
@@ -28,8 +118,6 @@ export async function generateQRBatch(count: number) {
     const createdAt = new Date().toISOString();
 
     for (let i = 0; i < count; i++) {
-        // Generate a secure random ID (8 chars hex = 4 bytes)
-        // Short enough to be typed if needed, long enough to be uniqueish in small batch
         const id = randomBytes(4).toString('hex').toUpperCase();
         const qrRef = adminDb.collection('qrs').doc(id);
 
@@ -38,6 +126,8 @@ export async function generateQRBatch(count: number) {
             status: 'UNCLAIMED',
             createdAt,
             assignedEmail: null,
+            scanCount: 0,
+            lastScanAt: null
         });
         newIds.push(id);
     }
