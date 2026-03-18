@@ -70,7 +70,7 @@ function SetupContent() {
                 />
                 <Input
                     label="AIESEC Entity (LC)"
-                    placeholder="AIESEC in Colombo Central"
+                    placeholder="AIESEC in Entity Name"
                     value={entity}
                     onChange={(e) => setEntity(e.target.value)}
                     required
