@@ -3,7 +3,17 @@ import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 
-const QR_BASE_URL = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/qr` : 'http://localhost:3000/qr';
+const getBaseUrl = () => {
+    if (process.env.NEXT_PUBLIC_BASE_URL) {
+        return process.env.NEXT_PUBLIC_BASE_URL;
+    }
+    if (typeof window !== 'undefined') {
+        return `${window.location.protocol}//${window.location.host}`;
+    }
+    return 'http://localhost:3000';
+};
+
+const QR_BASE_URL = `${getBaseUrl()}/qr`;
 
 export async function generateAndDownloadZip(ids: string[]) {
     const zip = new JSZip();

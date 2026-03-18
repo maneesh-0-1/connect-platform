@@ -146,3 +146,25 @@ export async function getAllQrIds() {
         return [];
     }
 }
+
+export async function deleteQRs(qrIds: string[]) {
+    const adminDb = getAdminDb();
+    
+    try {
+        const chunkSize = 500;
+        for (let i = 0; i < qrIds.length; i += chunkSize) {
+            const chunk = qrIds.slice(i, i + chunkSize);
+            const batch = adminDb.batch();
+            chunk.forEach(id => {
+                const qrRef = adminDb.collection('qrs').doc(id);
+                batch.delete(qrRef);
+            });
+            await batch.commit();
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Delete QRs Error:', error);
+        return { success: false, error: 'Failed to delete QRs' };
+    }
+}
+
