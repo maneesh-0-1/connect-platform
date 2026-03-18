@@ -65,7 +65,7 @@ export default function Home() {
       </div>
 
       <footer className="absolute bottom-4 text-center text-[10px] text-gray-600 uppercase tracking-widest">
-        Powered by AIESEC Tech • Privacy Secure
+        Powered by AIESEC in India • Privacy Secure
       </footer>
     </div>
   );

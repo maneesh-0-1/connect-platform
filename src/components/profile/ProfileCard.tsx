@@ -117,7 +117,7 @@ END:VCARD`;
                         </Button>
 
                         <div className="text-center pt-4 border-t border-white/5">
-                            <p className="text-[10px] text-gray-500 uppercase tracking-widest">Powered by Connect</p>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest">Powered by AIESEC in India</p>
                         </div>
                     </div>
                 </Card>
