@@ -47,7 +47,11 @@ export async function getDetailedAdminData() {
                 lastScan: qr.lastScanAt ? new Date(qr.lastScanAt).toLocaleString() : null,
                 email: qr.assignedEmail || '-',
                 name: user?.name || '-',
-                entity: user?.entity || '-',
+                entity: (() => {
+                    if (!user?.entity || user.entity === '-') return '-';
+                    const city = user.entity.toLowerCase().replace(/aiesec\s+in\s+/g, '').trim().replace(/\b\w/g, (c: string) => c.toUpperCase());
+                    return city ? `AIESEC in ${city}` : '-';
+                })(),
                 profileCompletion: user?.profileCompletion || 0,
             };
         });
